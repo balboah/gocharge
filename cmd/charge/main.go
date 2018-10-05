@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"log"
 	"sort"
@@ -14,7 +15,7 @@ import (
 func main() {
 	tibberURL := flag.String("tibberURL", "https://api.tibber.com/v1-beta/gql", "URL for the Tibber API")
 	tibberToken := flag.String("tibberToken", "", "access token for the Tibber API")
-	minHours := flag.Int("minHours", 4, "guaranteed number of hours charging per day")
+	hours := flag.Int("hours", 4, "number of hours charging per day")
 	beforeHour := flag.Int("beforeHour", 8, "guaranteed charging before this hour")
 	flag.Parse()
 
@@ -25,6 +26,20 @@ func main() {
 	client := graphql.NewClient(
 		*tibberURL, oauth2.NewClient(context.Background(), src),
 	)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	ok, err := shouldCharge(ctx, client, time.Now(), *hours, *beforeHour)
+	if err != nil {
+		log.Fatal(err)
+	}
+	if ok {
+		log.Println("Charge!")
+	} else {
+		log.Println("wait for it")
+	}
+}
+
+func shouldCharge(ctx context.Context, client *graphql.Client, now time.Time, hours, target int) (bool, error) {
 	query := struct {
 		Viewer struct {
 			Homes []struct {
@@ -37,18 +52,31 @@ func main() {
 			}
 		}
 	}{}
-	err := client.Query(context.Background(), &query, nil)
-	if err != nil {
-		log.Fatal(err)
+	if err := client.Query(ctx, &query, nil); err != nil {
+		return false, err
 	}
 
+	if len(query.Viewer.Homes) != 1 {
+		return false, errors.New("unsupported number of homes")
+	}
 	priceInfo := query.Viewer.Homes[0].CurrentSubscription.PriceInfo
 	allPrices := append(
-		filter(priceInfo.Today, *beforeHour),
-		filter(priceInfo.Tomorrow, *beforeHour)...,
+		filter(priceInfo.Today, target),
+		filter(priceInfo.Tomorrow, target)...,
 	)
 	sort.Sort(ByCost(allPrices))
-	log.Println(allPrices[:*minHours])
+	if n := len(allPrices); n < hours {
+		hours = n
+	}
+	log.Println("total", len(allPrices), allPrices[:hours])
+
+	for _, goodTimes := range allPrices[:hours] {
+		endsAt := goodTimes.StartsAt.Add(time.Hour)
+		if goodTimes.StartsAt.Equal(now.Truncate(time.Hour)) && endsAt.After(now) {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 type Price struct {
@@ -72,15 +100,16 @@ func filter(prices []Price, deadlineHour int) []Price {
 	if today.Hour() > deadlineHour {
 		targetDate = tomorrow
 	}
-	targetTime := time.Date(
+	nextTarget := time.Date(
 		targetDate.Year(), targetDate.Month(), targetDate.Day(),
 		deadlineHour,
 		0, 0, 0, targetDate.Location(),
 	)
+	previousTarget := nextTarget.Add(-24 * time.Hour)
 
 	filtered := []Price{}
 	for _, p := range prices {
-		if p.StartsAt.After(today) && p.StartsAt.Before(targetTime) {
+		if p.StartsAt.After(previousTarget) && p.StartsAt.Before(nextTarget) {
 			filtered = append(filtered, p)
 		}
 	}
