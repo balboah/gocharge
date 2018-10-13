@@ -3,6 +3,7 @@ package gocharge
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log"
 	"sort"
 	"time"
@@ -73,6 +74,10 @@ type TibberPrice struct {
 	Energy   graphql.Float
 	Tax      graphql.Float
 	StartsAt time.Time
+}
+
+func (p TibberPrice) String() string {
+	return fmt.Sprintf("Start: %s Price: %.3f", p.StartsAt.Format("Mon 15:04"), p.Total)
 }
 
 type ByCost []TibberPrice
