@@ -9,6 +9,17 @@ This example runs through Docker and is implemendeted in such a way that it requ
 
 ## Example
 
+### One time run with Docker
 ```bash
 docker run --rm -ti balboah/gocharge -hours 4 -tibberToken *changeme* -haloToken *changeme* -haloCharger *changeme* -haloSerial *changeme*
+```
+
+### Kubernetes cronjob
+
+```bash
+# Set API keys and select charger
+kubectl create secret generic gocharge --from-literal=tibber-token='changeme' --from-literal=halo-token='changeme' --from-literal=halo-charger='changeme' --from-literal=halo-serial='changeme'
+
+# Run on cronjob schedule
+kubectl create --save-config -f kube/cronjob.yaml
 ```

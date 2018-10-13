@@ -1,0 +1,36 @@
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: gocharge
+spec:
+  schedule: "0 * * * *"
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: charge
+            image: balboah/gocharge:v0.1-arm
+            env:
+              - name: TIBBER_TOKEN
+                valueFrom:
+                  secretKeyRef:
+                    name: gocharge
+                    key: tibber-token
+              - name: HALO_TOKEN
+                valueFrom:
+                  secretKeyRef:
+                    name: gocharge
+                    key: halo-token
+              - name: HALO_CHARGER
+                valueFrom:
+                  secretKeyRef:
+                    name: gocharge
+                    key: halo-charger
+              - name: HALO_SERIAL
+                valueFrom:
+                  secretKeyRef:
+                    name: gocharge
+                    key: halo-serial
+          restartPolicy: OnFailure
