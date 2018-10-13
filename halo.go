@@ -1,6 +1,7 @@
 package gocharge
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -33,8 +34,8 @@ func NewHaloClient(client *http.Client, apiKey, chargerCode, serial string) *Hal
 	}
 }
 
-func (h *HaloClient) Status() (*HaloStatusResponse, error) {
-	req, err := h.request("GET", "status")
+func (h *HaloClient) Status(ctx context.Context) (*HaloStatusResponse, error) {
+	req, err := h.request(ctx, "GET", "status")
 	if err != nil {
 		return nil, err
 	}
@@ -72,8 +73,8 @@ func (s HaloStatusResponse) String() string {
 	)
 }
 
-func (h *HaloClient) ChargerSwitch(s HaloSwitch) error {
-	req, err := h.request("PUT", string(s))
+func (h *HaloClient) ChargerSwitch(ctx context.Context, s HaloSwitch) error {
+	req, err := h.request(ctx, "PUT", string(s))
 	if err != nil {
 		return err
 	}
@@ -89,7 +90,7 @@ func (h *HaloClient) ChargerSwitch(s HaloSwitch) error {
 	return nil
 }
 
-func (h *HaloClient) request(method, endpoint string) (*http.Request, error) {
+func (h *HaloClient) request(ctx context.Context, method, endpoint string) (*http.Request, error) {
 	req, err := http.NewRequest(
 		method, strings.Join([]string{haloAPI, "chargers", h.serial, endpoint}, "/"), nil,
 	)
@@ -101,7 +102,7 @@ func (h *HaloClient) request(method, endpoint string) (*http.Request, error) {
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
 
-	return req, nil
+	return req.WithContext(ctx), nil
 }
 
 type HaloStatus string

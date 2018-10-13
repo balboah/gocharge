@@ -3,6 +3,7 @@
 package gocharge
 
 import (
+	"context"
 	"flag"
 	"net/http"
 	"net/http/httputil"
@@ -20,7 +21,7 @@ func init() {
 }
 
 func TestHaloStatus(t *testing.T) {
-	status, err := c.Status()
+	status, err := c.Status(context.Background())
 	if err != nil {
 		switch v := err.(type) {
 		case HaloStatusCodeError:
@@ -33,13 +34,13 @@ func TestHaloStatus(t *testing.T) {
 }
 
 func TestHaloSwitchOffline(t *testing.T) {
-	err := c.ChargerSwitch(HaloSwitchOffline)
+	err := c.ChargerSwitch(context.Background(), HaloSwitchOffline)
 	if err != nil {
 		t.Fatal(err)
 	}
 }
 func TestHaloSwitchOnline(t *testing.T) {
-	err := c.ChargerSwitch(HaloSwitchOnline)
+	err := c.ChargerSwitch(context.Background(), HaloSwitchOnline)
 	if err != nil {
 		t.Fatal(err)
 	}
